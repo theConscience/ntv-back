@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+      body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+      .reg-form {
+        position: absolute;
+        height: 80vh;
+        width: 80%;
+        background-color: #dfd;
+        color: #404;
+        display: flex;
+        flex-flow: column nowrap;
+      }
+      .reg-form--disabled {
+        display: none;
+      }
+
+      .auth-form {
+        position: absolute;
+        height: 80vh;
+        width: 80%;
+        background-color: #dfd;
+        color: #404;
+        display: flex;
+        flex-flow: column nowrap;
+      }
+      .auth-form--disabled {
+        display: none;
+      }
+
+      #form { background: rgba(0, 0, 0, 0.15); padding: 0.25rem; position: fixed; bottom: 0; left: 0; right: 0; display: flex; height: 3rem; box-sizing: border-box; backdrop-filter: blur(10px); }
+      #input { border: none; padding: 0 1rem; flex-grow: 1; border-radius: 2rem; margin: 0.25rem; }
+      #input:focus { outline: none; }
+      #form > button { background: #333; border: none; padding: 0 1rem; margin: 0.25rem; border-radius: 3px; outline: none; color: #fff; }
+
+      #messages { list-style-type: none; margin: 0; padding: 0; }
+      #messages > li { padding: 0.5rem 1rem; }
+      #messages > li:nth-child(odd) { background: #efefef; }
+      li.system-message {
+        background-color: lightgreen;
+        font-weight: bold;
+        color: green;
+      }
+    </style>
+  </head>
+  <body>
+    <form id="reg-form" class="reg-form reg-form--disabled" action="">
+      <label>
+        Please enter your name:
+        <input id="user-name" type="text" placeholder="Your name">
+      </label>
+      <label>
+        Enter your email:
+        <input id="user-email" type="text" placeholder="Your email">
+      </label>
+      <label>
+        Enter your password:
+        <input id="user-password" type="password" placeholder="Your password">
+      </label>
+      <button type="submit">Create user</button>
+    </form>
+
+    <form id="auth-form" class="auth-form auth-form--disabled" action="">
+      <label>
+        Enter your email:
+        <input id="auth-email" type="text" placeholder="Your email">
+      </label>
+      <label>
+        Enter your password:
+        <input id="auth-password" type="password" placeholder="Your password">
+      </label>
+      <button type="submit">Login</button>
+    </form>
+
+    <ul id="messages"></ul>
+
+    <form id="form" action="">
+      <input id="input" autocomplete="off" /><button>Send</button>
+    </form>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      var socket = io();
+
+
+      // NOTE: user creation
+      var regForm = document.getElementById('reg-form');
+      var userName = document.getElementById('user-name');
+      var userEmail = document.getElementById('user-email');
+      var userPassword = document.getElementById('user-password');
+
+      regForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (userName.value && userEmail.value && userPassword.value) {
+          socket.emit('user registration validation', userEmail.value);
+
+          // socket.emit('user registered', {
+          //   name: userName.value,
+          //   email: userEmail.value,
+          //   password: userPassword.value,
+          // });
+          // userName.value = '';
+          // userEmail.value = '';
+          // userPassword.value = '';
+          // regForm.classList.add('reg-form--disabled');
+        }
+        // TODO: warnings can be shown
+      });
+
+      socket.on('user registration check', function (isValid) {
+        if (!isValid) {
+          showWarnings('registration');
+          return;
+        }
+
+        socket.emit('register user', {
+          name: userName.value,
+          email: userEmail.value,
+          password: userPassword.value,
+        });
+        userName.value = '';
+        userEmail.value = '';
+        userPassword.value = '';
+        regForm.classList.add('reg-form--disabled');
+      });
+
+      socket.on('user registered', function (usr) {
+        authForm.classList.add('auth-form--disabled');
+        regForm.classList.add('reg-form--disabled');
+      });
+
+      // NOTE: user authentication
+      var authForm = document.getElementById('auth-form');
+      var authEmail = document.getElementById('auth-email');
+      var authPassword = document.getElementById('auth-password');
+
+      authForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (authEmail.value && authPassword.value) {
+          socket.emit('user authentication validation', {
+            email: userEmail.value,
+            password: userPassword.value,
+          });
+          //  const user = validateUser(authEmail.value, authPassword.value);
+
+          //  if (!user) return;
+
+          //  socket.emit('authenticate user', user);
+          //  authEmail.value = '';
+          //  authPassword.value = '';
+          //  authForm.classList.add('auth-form--disabled');
+        }
+        // TODO: warnings can be shown
+      });
+
+      socket.on('user authentication check', function (isValid) {
+        if (!isValid) {
+          showWarnings('authentication');
+          return;
+        }
+
+        socket.emit('authenticate user', {
+          email: userEmail.value,
+          password: userPassword.value,
+        });
+        userEmail.value = '';
+        userPassword.value = '';
+        regForm.classList.add('reg-form--disabled');
+      });
+
+      socket.on('user authenticated', function(usr) {
+        authForm.classList.add('auth-form--disabled');
+        regForm.classList.add('reg-form--disabled');
+      });
+
+      // NOTE: messaging
+      var messages = document.getElementById('messages');
+      var form = document.getElementById('form');
+      var input = document.getElementById('input');
+
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (input.value) {
+          console.log('socket emits chat message:', input.value);
+          socket.emit('chat message', input.value);
+          input.value = '';
+        }
+      });
+
+      function appendMessage(msg, type) {
+        var item = document.createElement('li');
+        if (type === 'system') item.classList.add('system-message')
+        item.textContent = msg;
+        messages.appendChild(item);
+        window.scrollTo(0, document.body.scrollHeight);
+      }
+
+      socket.on('user connected', function(name) {
+        console.log('user connected to chat:', name);
+        appendMessage('user ' + name + ' connected', 'system')
+      });
+
+      socket.on('chat message', function(msg) {
+        console.log('socket recieves chat message:', msg);
+        appendMessage(msg)
+      });
+
+      socket.on('user disconnected', function(name) {
+        console.log('user disconnected from chat:', name);
+        appendMessage('user ' + name + ' disconnected', 'system')
+      });
+
+      function showWarnings(type) {
+        console.log('Something wrong with your input data while', type);
+      }
+    </script>
+  </body>
+</html>

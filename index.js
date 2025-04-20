@@ -1,6 +1,7 @@
-import {
+const {
   pipe,
-} from 'ramda';
+  curry,
+} = require('ramda');
 
 // NOTE: server
 const express = require('express');
@@ -40,13 +41,20 @@ io.on('connection', (socket) => {
     io.emit('user disconnected', name);
   });
 
-  socket.on('user registration validation', (userEmail) => {
-    const existentUser = usersDb.find(({ email }) => email === userEmail).length;
-    console.log('existentUser:', existentUser);
-    io.emit('user registration check', !existentUser);
-  });
+
+  // Registration:
 
   socket.on('register user', (usr) => {
+    const existentUser = usersDb.find(({ email }) => email === userEmail);
+    console.log('existentUser:', existentUser);
+    const userExists = existentUser ? existentUser.length : false;
+    console.log('userExists:', userExists);
+
+    if (userExists) {
+      io.emit('user already exist', usr);
+      return;
+    }
+
     console.log('registering user:', usr);
     const updatedDb = [...usersDb, usr];
     writeJSONFile('./usersDb.json')(updatedDb);
@@ -54,22 +62,31 @@ io.on('connection', (socket) => {
     io.emit('user registered', usr);
   });
 
-  socket.on('user authentication validation', ({ email: userEmail, password: userPassword }) => {
-    const authenticatedUser = usersDb.find(({ email, password }) => email === userEmail && password === userPassword).length;
-    console.log('authenticatedUser:', authenticatedUser);
-    io.emit('user authetication check', !authenticatedUser);
-  });
+
+  // Authentication:
 
   socket.on('authenticate user', (usr) => {
+    const authenticatedUser = usersDb.find(({ email, password }) => email === userEmail && password === userPassword);
+    console.log('authenticatedUser:', authenticatedUser);
+    const isAuthenticated = authenticatedUser ? authenticatedUser.length : false;
+    console.log('isAuthenticated:', isAuthenticated);
+
+    if (!isAuthenticated) {
+      io.emit('unknown user', usr);
+      return;
+    }
+
     console.log('authenticating user:', usr);
-    const existentUser
     io.emit('user authenticated', usr);
   });
 
   socket.on('user authenticated', (usr) => {
     console.log('user authenticated:', usr);
-    io.emit('user authenticated', usr);
+    // io.emit('user authenticated', usr);
   });
+
+
+  // Messaging:
 
   socket.on('chat message', (msg) => {
     console.log('message: ' + msg);

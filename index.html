@@ -75,6 +75,8 @@
       <button type="submit">Login</button>
     </form>
 
+    <h1 class="title">You are logged as <span class="title__user-name"></span></h1>
+
     <ul id="messages"></ul>
 
     <form id="form" action="">
@@ -83,103 +85,68 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-      var socket = io();
-
+      const socket = io();
 
       // NOTE: user creation
-      var regForm = document.getElementById('reg-form');
-      var userName = document.getElementById('user-name');
-      var userEmail = document.getElementById('user-email');
-      var userPassword = document.getElementById('user-password');
+      const regForm = document.getElementById('reg-form');
+      const userName = document.getElementById('user-name');
+      const userEmail = document.getElementById('user-email');
+      const userPassword = document.getElementById('user-password');
 
       regForm.addEventListener('submit', function(e) {
         e.preventDefault();
         if (userName.value && userEmail.value && userPassword.value) {
-          socket.emit('user registration validation', userEmail.value);
-
-          // socket.emit('user registered', {
-          //   name: userName.value,
-          //   email: userEmail.value,
-          //   password: userPassword.value,
-          // });
-          // userName.value = '';
-          // userEmail.value = '';
-          // userPassword.value = '';
-          // regForm.classList.add('reg-form--disabled');
+          socket.emit('register user', {
+            name: userName.value,
+            email: userEmail.value,
+            password: userPassword.value,
+          });
         }
-        // TODO: warnings can be shown
       });
 
-      socket.on('user registration check', function (isValid) {
-        if (!isValid) {
-          showWarnings('registration');
-          return;
-        }
-
-        socket.emit('register user', {
-          name: userName.value,
-          email: userEmail.value,
-          password: userPassword.value,
-        });
+      socket.on('user registered', function(user) {
         userName.value = '';
         userEmail.value = '';
         userPassword.value = '';
-        regForm.classList.add('reg-form--disabled');
+        login(user);
       });
 
-      socket.on('user registered', function (usr) {
-        authForm.classList.add('auth-form--disabled');
-        regForm.classList.add('reg-form--disabled');
+      socket.on('user already exists', function(user) {
+        showWarnings('registration');
       });
 
       // NOTE: user authentication
-      var authForm = document.getElementById('auth-form');
-      var authEmail = document.getElementById('auth-email');
-      var authPassword = document.getElementById('auth-password');
+      const authForm = document.getElementById('auth-form');
+      const authEmail = document.getElementById('auth-email');
+      const authPassword = document.getElementById('auth-password');
 
       authForm.addEventListener('submit', function (e) {
         e.preventDefault();
         if (authEmail.value && authPassword.value) {
-          socket.emit('user authentication validation', {
+          socket.emit('authenticate user', {
             email: userEmail.value,
             password: userPassword.value,
           });
-          //  const user = validateUser(authEmail.value, authPassword.value);
-
-          //  if (!user) return;
-
-          //  socket.emit('authenticate user', user);
-          //  authEmail.value = '';
-          //  authPassword.value = '';
-          //  authForm.classList.add('auth-form--disabled');
         }
-        // TODO: warnings can be shown
-      });
-
-      socket.on('user authentication check', function (isValid) {
-        if (!isValid) {
-          showWarnings('authentication');
-          return;
-        }
-
-        socket.emit('authenticate user', {
-          email: userEmail.value,
-          password: userPassword.value,
-        });
-        userEmail.value = '';
-        userPassword.value = '';
-        regForm.classList.add('reg-form--disabled');
       });
 
       socket.on('user authenticated', function(usr) {
-        authForm.classList.add('auth-form--disabled');
-        regForm.classList.add('reg-form--disabled');
+        userEmail.value = '';
+        userPassword.value = '';
+        login(user);
       });
 
+      socket.on('unknown user', function (usr) {
+        showWarnings('authentication');
+      });
+
+
       // NOTE: messaging
-      var messages = document.getElementById('messages');
-      var form = document.getElementById('form');
-      var input = document.getElementById('input');
+      const title = document.querySelector('.title');
+      const titleUserName = title.querySelector('.title__user-name');
+      const messages = document.getElementById('messages');
+      const form = document.getElementById('form');
+      const input = document.getElementById('input');
 
       form.addEventListener('submit', function(e) {
         e.preventDefault();
@@ -191,7 +158,7 @@
       });
 
       function appendMessage(msg, type) {
-        var item = document.createElement('li');
+        const item = document.createElement('li');
         if (type === 'system') item.classList.add('system-message')
         item.textContent = msg;
         messages.appendChild(item);
@@ -213,7 +180,18 @@
         appendMessage('user ' + name + ' disconnected', 'system')
       });
 
+      function login(user) {
+        authForm.classList.add('auth-form--disabled');
+        regForm.classList.add('reg-form--disabled');
+        showChatAs(user);
+      }
+
+      function showChatAs(user) {
+        titleUserName.textContent = user.name;
+      }
+
       function showWarnings(type) {
+        // TODO: add real warnings
         console.log('Something wrong with your input data while', type);
       }
     </script>
